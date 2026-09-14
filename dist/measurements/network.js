@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { BaseMeasurer } from "./structure/base.js";
 import { LoggingLevel } from "../logging.js";
 import { MeasurementType } from "../types.js";
-const getSecurityContext = async (frame) => {
+const getSecurityContext = async (logger, frame) => {
     try {
         const response = await frame.evaluate("window.origin");
         if (response === undefined) {
@@ -11,7 +11,9 @@ const getSecurityContext = async (frame) => {
         assert(typeof response === "string");
         return response;
     }
-    catch {
+    catch (err) {
+        logger.error("Error when trying to determine security context in frame (url=" +
+            `'${frame.url()}'). Error: ${String(err)}`);
         return null;
     }
 };
@@ -208,7 +210,7 @@ class PageNetworkLogger {
         // in which case we need to add all the intermediate requests too
         // (since we'll have already recorded the initial request).
         while (request.redirectedFrom()) {
-            const securityContext = await getSecurityContext(request.frame());
+            const securityContext = await getSecurityContext(this.#logger, request.frame());
             await this.addRequest(request, securityContext);
             const nextRequest = request.redirectedFrom();
             assert(nextRequest);
@@ -232,25 +234,25 @@ class ContextNetworkLogger {
     async addWSRequest(page, url, data) {
         const pageForRequest = this.#pageToLoggerMap.get(page);
         assert(pageForRequest);
-        const securityContext = await getSecurityContext(page.mainFrame());
+        const securityContext = await getSecurityContext(this.#logger, page.mainFrame());
         return pageForRequest.addWebSocketRequest(url, securityContext, data);
     }
     async addWSResponse(page, url, data) {
         const pageForResponse = this.#pageToLoggerMap.get(page);
         assert(pageForResponse);
-        const securityContext = await getSecurityContext(page.mainFrame());
+        const securityContext = await getSecurityContext(this.#logger, page.mainFrame());
         return pageForResponse.addWebSocketResponse(url, securityContext, data);
     }
     async addRequest(page, request) {
         const pageForRequest = this.#pageToLoggerMap.get(page);
         assert(pageForRequest);
-        const securityContext = await getSecurityContext(page.mainFrame());
+        const securityContext = await getSecurityContext(this.#logger, page.mainFrame());
         return await pageForRequest.addRequest(request, securityContext);
     }
     async addResponse(page, response) {
         const pageForResponse = this.#pageToLoggerMap.get(page);
         assert(pageForResponse);
-        const securityContext = await getSecurityContext(page.mainFrame());
+        const securityContext = await getSecurityContext(this.#logger, page.mainFrame());
         return await pageForResponse.addResponse(response, securityContext);
     }
     // Notes that the top level frame in the page has navigated, and so

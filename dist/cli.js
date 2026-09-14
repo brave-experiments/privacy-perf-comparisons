@@ -57,7 +57,7 @@ parser.add_argument("-m", "--measurements", {
     default: defaultArgs.measurements,
     help: "Which measurements of performance to collect. By default, performs all " +
         "measurements.",
-    nargs: "+",
+    nargs: "*",
 });
 parser.add_argument("-o", "--output", {
     help: "Path to write results to. By default results are written to STDOUT, " +

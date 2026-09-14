@@ -89,8 +89,8 @@ export class Pipeline {
             assert(typeof measureStepMethod === "function");
             stepPromises.push(measureStepMethod());
         }
-        logger.verbose(`Ending step ${stepName}`);
         const orderedResults = await Promise.all(stepPromises);
+        logger.verbose(`Ending step ${stepName}`);
         const results = {};
         for (let i = 0; i < this.#numMeasurements; i += 1) {
             const aType = this.#config.measurements[i];

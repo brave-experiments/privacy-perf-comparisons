@@ -71,7 +71,7 @@ parser.add_argument("-m", "--measurements", {
   help:
     "Which measurements of performance to collect. By default, performs all " +
     "measurements.",
-  nargs: "+",
+  nargs: "*",
 });
 parser.add_argument("-o", "--output", {
   help:

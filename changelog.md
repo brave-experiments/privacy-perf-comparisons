@@ -13,6 +13,8 @@ Restructure code and measurements to use the `Pipeline` class (to semi-better
 standardize how all measurements can plug into and interact with the
 playwright-managed browser context).
 
+Allow for passing no `-m` options, so that you can run the tool without
+actually doing any measurements.
 
 0.2.7
 ---
@@ -25,7 +27,6 @@ Brave's content filtering features.
 Remove some not-useful logging from the default configuration.
 
 Update `tsconfig.json` to define `rootDir`.
-
 
 0.2.6
 ---
