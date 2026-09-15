@@ -1,6 +1,13 @@
 Browser Perf Logger
 ===
 
+0.3.1
+---
+
+Tried to make the the CLI slightly more pleasant, by taking the URL as
+a positional argument (and so, not needing `-u / --url`), and the browser
+family as a positional argument (and so, not needing `-b / --browser`).
+
 0.3.0
 ---
 

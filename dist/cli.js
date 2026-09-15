@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
-import { ArgumentParser, ArgumentDefaultsHelpFormatter, Namespace, } from "argparse";
+import { ArgumentParser, ArgumentDefaultsHelpFormatter, Namespace, SUPPRESS, } from "argparse";
 import { launch } from "./browser.js";
 import { defaultLaunchArgs, getVersion, runConfigForArgs } from "./config.js";
 import { getLogger, LoggingLevel } from "./logging.js";
@@ -21,8 +21,8 @@ parser.add_argument("-a", "--args", {
 });
 parser.add_argument("-b", "--browser", {
     choices: Object.values(BrowserType),
-    default: defaultArgs.browser,
-    help: "Which browser family to use for this test.",
+    dest: "browser_prev",
+    help: SUPPRESS,
 });
 parser.add_argument("-d", "--user-data-dir", {
     help: "Path to the user data directory to load and save persistent state " +
@@ -89,9 +89,8 @@ parser.add_argument("-t", "--timeout", {
     type: "int",
 });
 parser.add_argument("-u", "--url", {
-    help: "The URL to run measurements against. Should be a full URL (i.e., " +
-        "at least a scheme and a domain).",
-    required: true,
+    dest: "url_prev",
+    help: SUPPRESS,
     type: URL,
 });
 parser.add_argument("-v", "--version", {
@@ -117,6 +116,17 @@ parser.add_argument("--width", {
     default: defaultArgs.viewport?.width,
     help: "The width of the browser viewport to use when loading pages.",
     type: "int",
+});
+parser.add_argument("url", {
+    help: "The URL to run measurements against. Should be a full URL (i.e., " +
+        "at least a scheme and a domain)",
+    type: URL,
+});
+parser.add_argument("browser", {
+    default: defaultArgs.browser,
+    help: "Which browser family to use for this test, one of: " +
+        Object.values(BrowserType).join(", "),
+    nargs: "?",
 });
 try {
     const rawArgs = parser.parse_args();

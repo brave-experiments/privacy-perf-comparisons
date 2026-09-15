@@ -23,7 +23,7 @@ import {
   VersionNumber,
   WebkitBuildPaths,
 } from "./types.js";
-import { getLogger, LoggingLevel } from "./logging.js";
+import { getLogger, Logger, LoggingLevel } from "./logging.js";
 import { classForType } from "./measurements/structure/mapping.js";
 import { indent } from "./utils.js";
 
@@ -53,9 +53,9 @@ export const defaultLaunchArgs = (): Partial<RunConfig> => {
       MeasurementType.Timing,
     ],
     preservePages: false,
-    seconds: 30,
+    seconds: 10,
     shouldDropPermissions: true,
-    timeout: 30,
+    timeout: 5,
     viewport: {
       height: 720,
       width: 1280,
@@ -169,6 +169,7 @@ const shouldIgnoreConfChecks = (): boolean => {
 
 const getWebkitBuildPaths = async (
   args: Namespace,
+  browserType: BrowserType,
 ): Promise<WebkitBuildPaths | undefined> => {
   if (args.webkit_build === undefined) {
     return undefined;
@@ -187,18 +188,11 @@ const getWebkitBuildPaths = async (
     );
   }
 
-  if (args.browser !== BrowserType.WebKit) {
+  if (browserType !== BrowserType.WebKit) {
     throw new Error(
       "The --webkit-build-dir (-w) argument can only be used when the " +
         "--browser (-b) argument is 'webkit', but received " +
-        `'${String(args.browser)}'.`,
-    );
-  }
-
-  if (args.binary_path !== undefined) {
-    throw new Error(
-      "Cannot use the --webkit-build (-w) argument and the --binary (-x) " +
-        "argument at the same time.",
+        `'${browserType}'.`,
     );
   }
 
@@ -262,6 +256,59 @@ const makeOutputHandle = async (
   return (await open(outputArg, "w")).createWriteStream();
 };
 
+const browserForArgs = (args: Namespace, logger: Logger): BrowserType => {
+  let browserType: BrowserType | undefined;
+  if (typeof args.browser === "string") {
+    browserType = args.browser as BrowserType;
+  } else if (typeof args.browser_prev === "string") {
+    logger.error(
+      "The -b / --browser argument is deprecated. Use the 'browser' " +
+        "positional argument instead.",
+    );
+    browserType = args.browser_prev as BrowserType;
+  } else {
+    // browserType = defaultLaunchArgs().browser as BrowserType;
+    throw new Error(
+      "No browser type provided. You must specify a browser " +
+        `family to test, one of ${String(Object.values(BrowserType))}.`,
+    );
+  }
+
+  assert(Object.values(BrowserType).includes(browserType));
+  return browserType;
+};
+
+const urlForArgs = (args: Namespace, logger: Logger): URL => {
+  let urlArg: URL | undefined;
+  if (args.url instanceof URL) {
+    urlArg = args.url;
+  } else if (args.url_prev instanceof URL) {
+    logger.error(
+      "The -u / --url argument is deprecated. Use the 'url' " +
+        "positional argument instead.",
+    );
+    urlArg = args.url_prev;
+  } else {
+    throw new Error("No URL provided. You must provide a URL to measure.");
+  }
+
+  if (!validSchemes.includes(urlArg.protocol)) {
+    throw new Error(
+      "Invalid URL. Must contain a http(s) scheme and hostname. Received " +
+        `scheme "${urlArg.protocol}"`,
+    );
+  }
+
+  if (!urlArg.hostname) {
+    throw new Error(
+      "Invalid URL. Must contain a hostname. Received " +
+        `hostname "${urlArg.hostname}"`,
+    );
+  }
+
+  return urlArg;
+};
+
 export const runConfigForArgs = async (args: Namespace): Promise<RunConfig> => {
   const loggingLevel = args.logging as LoggingLevel;
   assert(Object.values(LoggingLevel).includes(loggingLevel));
@@ -270,27 +317,15 @@ export const runConfigForArgs = async (args: Namespace): Promise<RunConfig> => {
   const log = logger.prefixedLogger("runConfigForArgs(): ");
   log.verbose("Raw arguments=", args);
 
-  assert(args.url instanceof URL);
-  if (!validSchemes.includes(args.url.protocol)) {
-    throw new Error(
-      "Invalid URL. Must contain a http(s) scheme and hostname. Received " +
-        `scheme "${args.url.protocol}"`,
-    );
-  }
-
-  if (!args.url.hostname) {
-    throw new Error(
-      "Invalid URL. Must contain a hostname. Received " +
-        `hostname "${args.url.hostname}"`,
-    );
-  }
+  const url = urlForArgs(args, logger);
+  const browserType = browserForArgs(args, logger);
 
   if (args.seconds <= 0) {
     throw new Error('Invalid "seconds". Must be a positive integer.');
   }
 
   const isChromium =
-    args.browser === BrowserType.Chromium || args.browser === BrowserType.Brave;
+    browserType === BrowserType.Chromium || browserType === BrowserType.Brave;
 
   // Here we check that one of the following conditions are true:
   // 1. the user didn't specify a user-data-dir (in which case we create
@@ -370,14 +405,14 @@ export const runConfigForArgs = async (args: Namespace): Promise<RunConfig> => {
   // we check that the user has specified i. the browser is "webkit",
   // and ii. there is no --binary-path / -x argument specified (since we
   // infer that from the build dir).
-  const webkitBuildPaths = await getWebkitBuildPaths(args);
+  const webkitBuildPaths = await getWebkitBuildPaths(args, browserType);
   if (webkitBuildPaths) {
     binaryPath = webkitBuildPaths.binary;
   }
 
   let isUsingPlaywrightBinary = false;
   if (binaryPath === undefined) {
-    switch (args.browser) {
+    switch (browserType) {
       case BrowserType.Brave:
         throw new Error(
           "Must include a binary path when testing Brave (since " +
@@ -422,9 +457,6 @@ export const runConfigForArgs = async (args: Namespace): Promise<RunConfig> => {
     );
   }
 
-  const browserType = args.browser as BrowserType;
-  assert(Object.values(BrowserType).includes(browserType));
-
   const mesToPerform: MeasurementType[] = [];
   for (const aMeasurementTypeRaw of args.measurements) {
     const measurementType = aMeasurementTypeRaw as MeasurementType;
@@ -438,7 +470,7 @@ export const runConfigForArgs = async (args: Namespace): Promise<RunConfig> => {
 
   assert(args.output === undefined || typeof args.output === "string");
   const outputPath = args.output as undefined | string;
-  const outputHandle = await makeOutputHandle(outputPath, args.url);
+  const outputHandle = await makeOutputHandle(outputPath, url);
 
   assert(typeof args.preserve_pages === "boolean");
   const preservePages = args.preserve_pages;
@@ -484,13 +516,13 @@ export const runConfigForArgs = async (args: Namespace): Promise<RunConfig> => {
     seconds: args.seconds,
     shouldDropPermissions: !args.do_not_drop,
     timeout: args.timeout,
-    url: args.url,
+    url,
     userDataDir: validatedUserDataDir,
     viewport: {
       height: args.height,
       width: args.width,
     },
-    webkitBuildPaths: webkitBuildPaths,
+    webkitBuildPaths,
   };
 
   if (!shouldIgnoreConfChecks()) {
