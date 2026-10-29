@@ -133,6 +133,7 @@ const launchOptionsWebKit = (config: RunConfig): PersistentLaunchOptions => {
     };
   }
   options.offline = false;
+  options.ignoreDefaultArgs = true;
   return options;
 };
 

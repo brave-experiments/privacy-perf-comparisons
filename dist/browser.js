@@ -117,6 +117,7 @@ const launchOptionsWebKit = (config) => {
         };
     }
     options.offline = false;
+    options.ignoreDefaultArgs = true;
     return options;
 };
 const browserTypeConfigMapping = {

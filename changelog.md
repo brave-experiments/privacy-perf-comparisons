@@ -1,6 +1,11 @@
 Browser Perf Logger
 ===
 
+0.3.2
+---
+
+Testing override for all browser flags.
+
 0.3.1
 ---
 
